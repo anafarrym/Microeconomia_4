@@ -1,0 +1,244 @@
+---
+title: "APS-1"
+author: Ana Flavia Arrym, Bruno Penãs, Isabela Brunele, Enzo Carmona, Gabriel Belisiario,
+  Mariana Canto
+date: "02/03/2024"
+output:
+  html_document:
+    highlight: textmate
+    theme: flatly
+    number_sections: yes
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+  pdf_document:
+    toc: yes
+---
+# Introdução
+```{r}
+library(dplyr)
+library(pastecs)
+library(readxl)
+library(stargazer)
+library(plm)
+library(lmtest)
+```
+
+
+Primeiramente importante as bases de dados, e unificando elas em somente uma, através das
+duas colunas em comum ("*state*" e "*year*"). Estamos tratando também os dados, de forma que, 
+caso exista alguma coluna com valores nulos ("NA"), então será substituído por 0.
+Para iniciar o código todas as três bases disponíveis pelos professores foram unidas em uma só por meio das colunas em comum ("*state*" e "*year*"), o dados também foram tratados, assim, caso exista alguma coluna com valores nulos ("NA") esta será substituída por 0.
+
+```{r, echo=FALSE}
+setwd("C:/Users/Isamb/OneDrive - Insper - Institudo de Ensino e Pesquisa/5° semestre/MICRO IV/APS1")
+
+base1 <- read_xlsx("Base1_APS1.xlsx")
+base2 <- read_xlsx("Base2_APS1.xlsx")
+base3 <- read_xlsx("Base3_APS1.xlsx")
+
+data_merge1 = merge(base1, base2, by = c("state", "year"))
+df = merge(data_merge1, base3, by = c("state", "year"))
+df[is.na(df)] = 0
+
+
+
+```
+
+# Análise descritiva
+## Fixando o ano
+A análise descritiva de dados terá sua primeira parte direcionada ao desenvolvimento de gráficos para o entendimento do comportamento das variáveis ao longo dos anos. Para isso foi feita uma agregação das variáveis com RCT = 1 envolvendo todos os estados.
+
+A seguir estão listados cada um dos gráficos desenvolvidos nessa seção:
+1° evolução na quantidade de estados com RTC ao longo do tempo
+2° evolução no índice do desemprego ao longo dos anos
+3° evolução do índice médio de violência 
+4° evolução do nível de pobreza  
+5° evolução da densidade populacional
+6° evolução da renda per capita 
+
+```{r, echo=FALSE, warning=FALSE, fig.align='center'}
+library(ggplot2)
+soma_RTC <- aggregate(df$RTC,by = list(df$year),FUN = sum)
+ggplot(soma_RTC, aes(x=soma_RTC$Group.1, y=soma_RTC$x, group=1)) +
+  geom_line()+
+  geom_point() +
+  theme(
+    plot.title=element_text(size=14, face="bold", hjust = 0.5)) +
+  labs(title="Estados com RTC = 1",
+       x = "Anos",
+       y = "Número de estados")
+
+soma_unemployment <- aggregate(df$unemployment_rate,by = list(df$year),FUN = mean)
+ggplot(soma_unemployment, aes(x=soma_unemployment$Group.1, y=soma_unemployment$x, group=1)) +
+  geom_line()+
+  geom_point() +
+  theme(
+    plot.title=element_text(size=14, face="bold", hjust = 0.5)) +
+  labs(title="Desemprego ao longo dos anos",
+       x = "Anos",
+       y = "Quantidade de desempregados")
+
+med_violent <- aggregate(df$ln_violent_rate,by = list(df$year),FUN = mean)
+ggplot(med_violent, aes(x=med_violent$Group.1, y=med_violent$x, group=1)) +
+  geom_line()+
+  geom_point() +
+  theme(
+    plot.title=element_text(size=14, face="bold", hjust = 0.5)) +
+  labs(title="Evolução da taxa de crimes violentos",
+       x = "Anos",
+       y = "Média") +
+  ylim(5,7.5)
+
+soma_poverty <- aggregate(df$poverty_rate,by = list(df$year),FUN = mean)
+ggplot(soma_poverty, aes(x=soma_poverty$Group.1, y=soma_poverty$x, group=1)) +
+  geom_line()+
+  geom_point() +
+  theme(
+    plot.title=element_text(size=14, face="bold", hjust = 0.5)) +
+  labs(title="Nível de pobreza",
+       x = "Anos",
+       y = "Índice") +
+  ylim(8,16)
+
+soma_density <- aggregate(df$density,by = list(df$year),FUN = mean)
+ggplot(soma_density, aes(x=soma_density$Group.1, y=soma_density$x, group=1)) +
+  geom_line()+
+  geom_point() +
+  theme(
+    plot.title=element_text(size=14, face="bold", hjust = 0.5)) +
+  labs(title="Densidade populacional",
+       x = "Anos",
+       y = "Densidade") +
+  ylim(350,410)
+
+soma_income <- aggregate(df$rpcpi,by = list(df$year),FUN = mean)
+ggplot(soma_income, aes(x=soma_income$Group.1, y=soma_income$x, group=1)) +
+  geom_line()+
+  geom_point() +
+  theme(
+    plot.title=element_text(size=14, face="bold", hjust = 0.5)) +
+  labs(title="Renda per capita",
+       x = "Anos",
+       y = "Renda") +
+  ylim(11000,20000)
+
+```
+
+##Comparando Resultados
+Nesta seção as variáveis descritivas foram separadas de duas maneiras diferentes, sendo a primeira delas a formulação das tabelas com os valores das médias e desvios padrões para todas as variáveis que serão utilizadas na regressão linear, entretanto aqui as tabelas foram separas entre aquelas com e sem a presença do RTC. A segunda análise descritiva presente nesta seção apresenta gráficos de comparação ao longo dos anos de locais com e sem a políica do RTC aplicadas.
+
+```{r}
+df %>%
+  group_by(RTC, year) %>% 
+  summarise_at(vars(unemployment_rate, ln_violent_rate, poverty_rate,
+           density,rpcpi), list(mean = mean)) %>% 
+  filter(RTC == 1)
+
+df %>%
+  group_by(RTC, year) %>% 
+  summarise_at(vars(unemployment_rate, ln_violent_rate, poverty_rate,
+           density,rpcpi), list(dp = sd)) %>% 
+  filter(RTC == 1)
+
+df %>%
+  group_by(RTC, year) %>% 
+  summarise_at(vars(unemployment_rate, ln_violent_rate, poverty_rate,
+           density,rpcpi), list(mean = mean)) %>% 
+  filter(RTC == 0)
+
+df %>%
+  group_by(RTC, year) %>% 
+  summarise_at(vars(unemployment_rate, ln_violent_rate, poverty_rate,
+           density,rpcpi), list(dp = sd)) %>% 
+  filter(RTC == 0)
+
+df %>%
+  group_by(RTC, year) %>% 
+  summarise_at(vars(ln_violent_rate), list(mean = mean)) %>% 
+  mutate(year = (year), RTC = as.factor(RTC)) %>% 
+  ggplot()+
+  geom_line(aes(year, mean, colour = RTC)) +
+  labs(title="Média dos crimes violentos",
+       x = "Anos",
+       y = "Média")
+
+df %>%
+  group_by(RTC, year) %>% 
+  summarise_at(vars(unemployment_rate), list(mean = mean)) %>% 
+  mutate(year = (year), RTC = as.factor(RTC)) %>% 
+  ggplot()+
+  geom_line(aes(year, mean, colour = RTC)) +
+  labs(title="Índice de desemprego",
+       x = "Anos",
+       y = "Índice")
+
+df %>%
+  group_by(RTC, year) %>% 
+  summarise_at(vars(poverty_rate), list(mean = mean)) %>% 
+  mutate(year = (year), RTC = as.factor(RTC)) %>% 
+  ggplot()+
+  geom_line(aes(year, mean, colour = RTC)) +
+  labs(title="poverty_rate",
+       x = "Anos",
+       y = "Índice")
+
+
+
+```
+
+
+# Regressão Linear
+Nesta seção iremos rodar a regressão com base nas varáveis que foram descritas anteriormente.
+
+```{r, echo=FALSE, warning=FALSE}
+df2 <- df %>% 
+  mutate(state = as.factor(state))
+
+#Criando variáveis númericas para fazer a regressão
+crimes_violentos <- df$ln_violent_rate
+desemprego <- df$unemployment_rate
+pobreza <- df$poverty_rate
+densidade <- df$density
+dummy_rtc <- df$RTC
+real_income_percapita <- df$rpcpi
+
+#Regressão com efeito fixo
+modelo_linear <- plm(crimes_violentos~dummy_rtc+desemprego+pobreza+
+                      densidade+real_income_percapita, 
+data = df2, model = 'within') 
+
+summary(modelo_linear) #Resumo do modelo
+stargazer(modelo_linear, type = "text")
+```
+
+---
+# Testes
+```{r}
+#Rodando o efeito aleatório
+modelo_linear_aleat <- plm(crimes_violentos~dummy_rtc+desemprego+pobreza+
+                      densidade+real_income_percapita, 
+data = df2, model = 'random') # regressão com efeitos aleatório
+
+summary(modelo_linear_aleat) #comando para ver um resumo do modelo
+stargazer(modelo_linear_aleat, type = "text")
+
+```
+
+## Hausman
+```{r}
+phtest(modelo_linear, modelo_linear_aleat)
+print(phtest)
+```
+
+## Chow
+```{r}
+modelo_pooled=plm(crimes_violentos~dummy_rtc+desemprego+pobreza+
+                      densidade+real_income_percapita, 
+data = df2, model="pooling")
+
+pFtest(modelo_linear,modelo_pooled)
+print(pFtest)
+
+```

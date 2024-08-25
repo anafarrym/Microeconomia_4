@@ -1,0 +1,343 @@
+---
+title: "APS 2"
+author: "ana flavia arrym"
+date: "2024-03-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Grupo 1: Ana Flavia Arrym, Bruno Peñas, Enzo Carmona, Gabriel Belisiario,
+Mariana Canto e Isabela Brunele
+# Setup inicial 
+
+```{r}
+rm(list=ls())
+library(haven)
+setwd("C:/Users/Ana Flávia/OneDrive - Insper - Institudo de Ensino e Pesquisa/Economia/Quinto Semestre/Microeconomia IV/bloco 2/APS 2")
+
+load("wave_7.rdata")
+
+data = `WVS_Cross-National_Inverted_Wave_7_rData_v5_0`
+```
+
+# Ajustando Variáveis
+```{r}
+
+library(tidyverse)
+
+#separando em uma nova table as variáveis que vamos usar
+data = data%>% 
+  select(Q28P, Q29P, Q32P, Q33P, Q46P, Q233P, W_WEIGHT)
+
+#alterando o código para todos os valores que forem negativos 
+#serem transformados em NA
+data = data %>% 
+  mutate_if( is.numeric, function(x) {x[x < 0] <- NA; x})
+  
+#filtando todas as variáveis que não são NA 
+data = data %>% 
+  filter(!is.na(Q28P),
+         !is.na(Q29P),
+         !is.na(Q32P),
+         !is.na(Q33P),
+         !is.na(Q46P),
+         !is.na(Q233P),
+         !is.na(W_WEIGHT))
+  View(data)
+  
+```
+
+#Variaveis explicativas e variável dependente
+
+1°) Q28 = When a mother works for pay, the children suffer
+2°) Q29 = On the whole, men make better political leaders than women do
+3°) Q32 = Being a housewife is just as fulfilling as working for pay
+4°) Q33 = When jobs are scarce, men should have more right to a job than women
+5°) Q233 = Women have equal opportunities to run the office
+Variável dependente
+Q46 = Taking all things together, how happy would you say you are
+
+## Transformando as variáveis em binárias
+
+```{r}
+data = data %>% 
+  mutate(Q28P := ifelse(Q28P <= 2, 1, 0),
+         Q29P := ifelse(Q29P <= 2, 1, 0),
+         Q32P := ifelse(Q32P <= 2, 1, 0),
+         Q33P := ifelse(Q33P <= 2, 1, 0),
+         Q46P := ifelse(Q46P <= 2, 1, 0),
+         Q233P := ifelse(Q233P <= 2, 1, 0))
+
+#tranformando as colunas em categóricas
+data = data %>% 
+  mutate(Q28P = as_factor(Q28P),
+         Q29P = as_factor(Q29P),
+         Q32P = as_factor(Q32P),
+         Q33P = as_factor(Q33P),
+         Q46P = as_factor(Q46P),
+         Q233P = as_factor(Q233P))
+
+View(data)
+```
+
+
+##Definindo plano amostral
+```{r}
+library(survey)
+#transformando o fator W_WHEIGHT em numérico
+data = data %>% 
+  mutate(W_WEIGHT = as.numeric(W_WEIGHT)) 
+
+#definindo plano amostral da survey
+svy <- svydesign(id = ~1, weights= data$W_WEIGHT, 
+                 data=data)
+
+```
+
+## Análise descritiva
+```{r}
+library(questionr)
+library(ggplot2)
+#média das variáveis a serem utilizadas no modelo
+stats_mean <- svymean(~Q46P + Q28P + Q29P + Q32P + Q33P + Q233P,
+                      svy, 
+                      na.rm = TRUE, 
+                      parm=NA)
+
+
+print(stats_mean)
+confint(stats_mean)
+```
+```{r}
+#mudar coeficientes
+svy %>%
+  ggsurvey() +
+  geom_bar(aes(x = Q46P, y= ..count.. / sum(..count..)), fill = '#69b3a2') +
+  theme_minimal() +
+  labs(x = 'Contagem',
+       y = 'Frequência',
+       title = 'Respostas para a pergunta Q46: sou feliz?',
+       caption = 'WVS (wave 7)') +
+  theme(plot.title=element_text(size=12, face="bold", hjust =
+                                0.5),
+        legend.text=element_text(size=8),
+        axis.text=element_text(size=8),
+        axis.title = element_text(size = 10),
+        legend.title = element_text(size = 10)) +
+  scale_x_discrete(labels = c('Disagree', 'Agree'))
+
+```
+
+### Gráfico Q28P
+```{r}
+library(ggplot2)
+data %>% 
+  ggplot() +
+    geom_bar(aes(x = Q28P, y = ..count../ sum(..count..), fill = Q28P)) +
+  scale_fill_manual(values=c("#D751BD", "#44C9E4")) +
+  labs(x = "Respostas",
+       y = "Frequência",
+       title = "When a mother works for pay, the children suffer") +
+  scale_x_discrete(labels = c('Disagree', 'Agree')) +
+  theme(legend.position = "none")
+  
+```
+
+### Gráfico Q29P
+
+```{r}
+data %>% 
+  ggplot() +
+    geom_bar(aes(x = Q29P, y = ..count../ sum(..count..), fill = Q29P)) +
+  scale_fill_manual(values=c("#D751BD", "#44C9E4")) +
+  labs(x = "Respostas",
+       y = "Frequência",
+       title = "On the whole, men make better political leaders than women do") +
+  scale_x_discrete(labels = c('Disagree', 'Agree')) +
+  theme(legend.position = "none")
+```
+### Gráfico Q32
+
+```{r}
+data %>% 
+  ggplot() +
+    geom_bar(aes(x = Q32P, y = ..count../ sum(..count..), fill = Q32P)) +
+  scale_fill_manual(values=c("#D751BD", "#44C9E4")) +
+  labs(x = "Respostas",
+       y = "Frequência",
+       title = "Being a housewife is just as fulfilling as working for pay") +
+  scale_x_discrete(labels = c('Disagree', 'Agree')) +
+  theme(legend.position = "none")
+```
+### Gráfico Q33
+
+```{r}
+data %>% 
+  ggplot() +
+    geom_bar(aes(x = Q33P, y = ..count../ sum(..count..), fill = Q33P)) +
+  scale_fill_manual(values=c("#D751BD", "#44C9E4")) +
+  labs(x = "Respostas",
+       y = "Frequência",
+       title = "When jobs are scarce, men should have more right to a job than women") +
+  scale_x_discrete(labels = c('Disagree', 'Agree')) +
+  theme(legend.position = "none")
+```
+
+### Gráfico 233
+
+```{r}
+data %>% 
+  ggplot() +
+    geom_bar(aes(x = Q233P, y = ..count../ sum(..count..), fill = Q233P)) +
+  scale_fill_manual(values=c("#D751BD", "#44C9E4")) +
+  labs(x = "Respostas",
+       y = "Frequência",
+       title = "Women have equal opportunities to run the office") +
+  scale_x_discrete(labels = c('Disagree', 'Agree')) +
+  theme(legend.position = "none")
+```
+
+# Regressões 
+
+## MPL 
+
+```{r}
+library(stargazer)
+#rodando o modelo MPL
+modelo_mpl <- svyglm(as.numeric(Q46P) ~ Q28P + Q29P + Q32P + Q33P + Q233P,
+                     design = svy,
+                     family=stats::gaussian(link="identity"))
+
+stargazer(modelo_mpl,  type = "text")
+
+```
+
+### Histograma de probabilidades preditas do MPL
+```{r}
+hist(predict(modelo_mpl,type='response', design=svy),freq=FALSE)
+```
+
+### Efeitos marginais
+```{r}
+library(margins)
+margins_mpl <- margins(modelo_mpl, design = svy)
+margins_mpl
+```
+
+## Logit
+```{r}
+modelo_logit <- svyglm(Q46P ~ Q28P + Q29P + Q32P + Q33P + Q233P,
+                     design = svy,
+                     family=binomial(link = "logit"))
+
+stargazer(modelo_logit,  type = "text")
+```
+
+### Histogrma de probabilidades preditas para o modelo logit
+```{r}
+hist(predict(modelo_logit,type='response', design=svy),freq=FALSE)
+```
+
+
+### Efeitos marginais
+```{r}
+margins_logit <- margins(modelo_logit, design = svy)
+margins_logit
+```
+
+
+### Odds Ratio 
+```{r}
+exp(cbind(coef(modelo_logit),confint(modelo_logit)))
+```
+### Qualidade de ajuste (GOF)
+```{r}
+library(ResourceSelection)
+hoslem.test(modelo_logit$y,fitted(modelo_logit),g=8)
+```
+### Caulando as a acurácia do modelo pela curva ROC
+```{r}
+#Calculando diagnósticos do modelo
+library(ROCit)
+roc <- rocit(score = modelo_logit$fitted.values, class = modelo_logit$y)
+roc 
+
+#Acurácia total, sensibilidade e especificadade dado o diagnóstico geral feito
+measure <- measureit(roc,measure = c("ACC","SENS","SPEC"))
+
+#Acurácia total
+plot(measure$Cutoff,measure$ACC)
+
+#Focando especificamente na sensibilidade
+plot(measure$Cutoff,measure$SENS)
+
+#Focando na especificidade
+plot(measure$Cutoff,measure$SPEC)
+
+#plotando a curva de roc
+plot(roc)
+```
+
+## Probit
+
+```{r}
+modelo_probit <- svyglm(Q46P ~ Q28P + Q29P + Q32P + Q33P + Q233P,
+                     design = svy,
+                     family=binomial(link = "probit"))
+
+stargazer(modelo_probit,  type = "text")
+```
+
+### Histograma de probabilidades preditas do modelo PROBIT
+```{r}
+hist(predict(modelo_probit,type='response', design=svy),freq=FALSE)
+```
+
+
+### Efeitos marginais
+```{r}
+margins_probit <- margins(modelo_probit, design = svy)
+margins_probit
+```
+
+### Caulando as a acurácia do modelo pela curva ROC
+```{r}
+#Calculando diagnósticos do modelo
+roc_p <- rocit(score = modelo_probit$fitted.values, class = modelo_probit$y)
+roc_p
+
+#Acurácia total, sensibilidade e especificadade dado o diagnóstico geral feito
+measure_p <- measureit(roc_p,measure = c("ACC","SENS","SPEC"))
+
+#Acurácia total
+plot(measure$Cutoff,measure$ACC)
+
+#Focando especificamente na sensibilidade
+plot(measure$Cutoff,measure$SENS)
+
+#Focando na especificidade
+plot(measure$Cutoff,measure$SPEC)
+
+#plotando a curva de roc
+plot(roc_p)
+```
+### Qualidade de ajuste (GOF)
+```{r}
+hoslem.test(modelo_probit$y,fitted(modelo_probit),g=8)
+```
+# Testes de Hipóteses
+# Testes de Wald
+
+```{r}
+library(lmtest)
+# Testes de Wald
+coeftest(modelo_mpl)
+coeftest(modelo_logit)
+coeftest(modelo_probit)
+```
+
+
+

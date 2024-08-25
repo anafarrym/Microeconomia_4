@@ -1,0 +1,190 @@
+---
+title: "APS 3"
+author: "ana flavia arrym"
+date: "2024-04-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Organização dos dados
+
+```{r}
+
+#Baixando bibliotecas
+library(tidyverse) 
+library(dplyr)
+library(ggplot2)
+library(stargazer)
+library(modelsummary)
+library(fastDummies)
+
+setwd("C:/Users/Ana Flávia/OneDrive - Insper - Institudo de Ensino e Pesquisa/Economia/Quinto Semestre/Microeconomia IV/Bloco 3/APS 3")
+star <- read.table("Star.csv", header = TRUE, sep = ",")
+
+#transformando as variáveis dummies em fator
+star = star %>%
+  mutate(
+  boy = as_factor(boy),
+  white_asian = as_factor(white_asian),
+  black = as_factor(black),
+  tchwhite = as_factor(tchwhite),
+  tchmasters = as_factor(tchmasters),
+  freelunch = as_factor(freelunch),
+  schurban = as_factor(schurban),
+  schrural = as_factor(schrural),
+  small = as_factor(small),
+  regular = as_factor(regular),
+  aide = as_factor(aide),
+  tchexper = as.numeric(tchexper)
+)
+
+#retirando os NA's
+star = star %>%
+  filter( !is.na(tchexper))
+
+star = star %>%
+  mutate(
+    salas = case_when(
+      aide == 1 ~ 'aide',
+      regular == 1 ~ 'regular',
+      small == 1 ~ 'small',
+      TRUE ~ 'Other'),
+    salas = as_factor(salas)
+    )
+
+#criando uma variável para as classificações da experiência dos professores
+star = star %>%
+  mutate(
+    prof_exper = case_when(
+      tchexper <= 9 ~ 'pouca',
+      tchexper > 9 & tchexper <= 18 ~ 'media',
+      tchexper > 18 & tchexper <= 27 ~ 'alta'
+    )
+  )
+
+view(star)
+```
+
+#Análises descritivas 
+##descritiva das variáveis num geral
+```{r}
+summary(star)
+
+datasummary_skim(star)
+```
+##Tipos de salas
+```{r}
+#neste gráfico iremos verificar a quantidade de cada uma das três 
+#segmentações que o experimento apresentou
+star %>%
+  ggplot() +
+  geom_bar(aes(x = salas, y= ..count..), fill = '#69b3a2') +
+  theme_minimal() +
+  labs(x = 'Tipos de salas',
+       y = 'Quantidades de salas',
+       title = 'Quantidade de salas por cada segmentação',) +
+  theme(plot.title=element_text(size=12, face="bold", hjust =
+                                0.5),
+        legend.text=element_text(size=8),
+        axis.text=element_text(size=8),
+        axis.title = element_text(size = 10),
+        legend.title = element_text(size = 10))
+
+summary(star$salas)
+```
+
+##descritivas por separação de sexo
+
+```{r}
+star %>%
+  ggplot() +
+  geom_bar(aes(x = as_factor(boy), y= ..count.., fill = salas), position = "dodge2") +
+  theme_minimal() +
+  labs(x = 'Tipos de salas',
+       y = 'Quantidades de salas',
+       title = 'Quantidade de salas por cada segmentação') +
+  scale_x_discrete(labels = c('Menino', 'Menina')) +
+  theme(plot.title=element_text(size=12, face="bold", hjust =
+                                0.5),
+        legend.text=element_text(size=8),
+        axis.text=element_text(size=8),
+        axis.title = element_text(size = 10),
+        legend.title = element_text(size = 10))
+
+summary(star$mathscore[star$boy == 1])
+summary(star$mathscore[star$boy == 0])
+
+```
+
+##Analisando Mathscore para cada tipo de sala
+
+```{r}
+
+summary(star$mathscore[star$small == 1])
+summary(star$mathscore[star$regular == 1])
+summary(star$mathscore[star$aide == 1])
+```
+
+##Analisando teach experience para
+
+```{r}
+summary(star$mathscore[star$prof_exper == 'pouca'])
+summary(star$mathscore[star$prof_exper == 'media'])
+summary(star$mathscore[star$prof_exper == 'alta'])
+
+```
+##analisando matscore para free luch
+```{r}
+summary(star$mathscore[star$freelunch == 0])
+summary(star$mathscore[star$freelunch == 1])
+
+```
+##analisando matscore para raça
+```{r}
+#notas de matemática se o aluno é preto ou não
+summary(star$mathscore[star$black == 0])
+summary(star$mathscore[star$black == 1])
+```
+
+#regressões
+
+```{r}
+reg1 <- lm(mathscore ~ small + boy + freelunch + black + tchexper,
+           data = star)
+stargazer(reg1, type = "text")
+
+```
+#adicionando dummies
+```{r}
+#transformando a variável que identifica escola em dummie
+star = star %>%
+  mutate(
+    schid = as_factor(schid)
+  )
+view(star)
+
+#rodando a regressão com a identificação de escola como dummie
+reg2 <- lm(mathscore ~ small + boy + freelunch + black + tchexper +
+             schid, data = star)
+stargazer(reg2, type = "text")
+
+anova(reg2)
+```
+#regredindo para small
+```{r}
+#rodando a regressão tendo small como a variável de interesse
+reg_small <- lm(as.numeric(small) ~ boy + freelunch + black + tchexper,
+                data = star)
+
+stargazer(reg_small, type = "text")
+
+#verificando a aleatorização
+aleatorizacao = glm(small ~ boy + freelunch + black + tchexper,
+                    family=binomial(link="probit"), data = star)
+
+stargazer(aleatorizacao, type = "text")
+```
+
